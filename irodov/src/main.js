@@ -35,7 +35,7 @@ async function init() {
         });
     }
 
-    const response = await fetch('/data/library.json?v=' + Date.now());
+    const response = await fetch('data/library.json?v=' + Date.now());
     bookStructure = await response.json();
     
     renderSidebar();
@@ -148,13 +148,13 @@ async function loadChapter(book, chapterId, sectionId = null) {
     if (chapterInfo.folder && sectionId) {
       const section = chapterInfo.sections.find(s => s.id === sectionId);
       if (section && section.file) {
-        fileToLoad = `/data/${chapterInfo.folder}/${section.file}`;
+        fileToLoad = `data/${chapterInfo.folder}/${section.file}`;
       }
     } else if (chapterInfo.file) {
-        fileToLoad = `/data/chapters/${chapterInfo.file}`;
+        fileToLoad = `data/chapters/${chapterInfo.file}`;
     } else if (chapterInfo.folder && !sectionId && chapterInfo.sections.length > 0) {
         const firstSec = chapterInfo.sections[0];
-        fileToLoad = `/data/${chapterInfo.folder}/${firstSec.file}`;
+        fileToLoad = `data/${chapterInfo.folder}/${firstSec.file}`;
         sectionId = firstSec.id;
     }
 
@@ -254,8 +254,8 @@ function createContentElement(item) {
       problemHTML += `<div class="problem-statement">${formatText(item.statement)}</div>`;
       
       if (item.image) {
-        const imgSrc = item.image.src.startsWith('images/') || item.image.src.startsWith('/') ? item.image.src : `/images/${item.image.src}`;
-        const finalSrc = imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc;
+        const imgSrc = item.image.src.startsWith('images/') || item.image.src.startsWith('/') ? item.image.src : `images/${item.image.src}`;
+        const finalSrc = imgSrc.startsWith('/') ? imgSrc.substring(1) : imgSrc;
         problemHTML += `
           <div class="image-container">
             <img src="${finalSrc}" alt="${item.image.caption || ''}">
@@ -297,8 +297,8 @@ function createContentElement(item) {
     case 'image':
       const container = document.createElement('div');
       container.className = 'image-container';
-      const imgSrc = item.src.startsWith('images/') || item.src.startsWith('/') ? item.src : `/images/${item.src}`;
-      const finalSrc = imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc;
+      const imgSrc = item.src.startsWith('images/') || item.src.startsWith('/') ? item.src : `images/${item.src}`;
+      const finalSrc = imgSrc.startsWith('/') ? imgSrc.substring(1) : imgSrc;
       container.innerHTML = `
         <img src="${finalSrc}" alt="${item.caption || ''}">
         ${item.caption ? `<p class="caption">${item.caption}</p>` : ''}
