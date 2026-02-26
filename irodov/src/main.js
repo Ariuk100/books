@@ -8,6 +8,18 @@ const bookContainer = document.querySelector('#book-content');
 const chapterTitle = document.querySelector('#chapter-title');
 const sidebar = document.querySelector('#sidebar');
 const sidebarToggle = document.querySelector('#sidebar-toggle');
+const sidebarOverlay = document.querySelector('#sidebar-overlay');
+const sidebarClose = document.querySelector('#sidebar-close');
+
+function openMobileSidebar() {
+  sidebar.classList.add('active');
+  sidebarOverlay.classList.add('active');
+}
+
+function closeMobileSidebar() {
+  sidebar.classList.remove('active');
+  sidebarOverlay.classList.remove('active');
+}
 
 // Initialize the app
 async function init() {
@@ -17,13 +29,27 @@ async function init() {
     if (isCollapsed) sidebar.classList.add('collapsed');
 
     sidebarToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      // For mobile: use 'active' class to show/hide
       if (window.innerWidth <= 768) {
-        sidebar.classList.toggle('active');
+        // Утсан дээр: overlay + active
+        if (sidebar.classList.contains('active')) {
+          closeMobileSidebar();
+        } else {
+          openMobileSidebar();
+        }
+      } else {
+        // Desktop дээр: collapsed логик
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
       }
-      localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
     });
+
+    // Overlay дарахад хаагдана
+    sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+    // X товч дарахад хаагдана
+    if (sidebarClose) {
+      sidebarClose.addEventListener('click', closeMobileSidebar);
+    }
 
     // Collapse All Logic
     const collapseAllBtn = document.getElementById('collapse-all-btn');
@@ -41,12 +67,20 @@ async function init() {
     
     renderSidebar();
     
-    // Load first book's first chapter by default
-    if (bookStructure.books && bookStructure.books.length > 0) {
-      const firstBook = bookStructure.books[0];
-      if (firstBook.chapters.length > 0) {
-          loadChapter(firstBook, firstBook.chapters[0].id);
-      }
+    // Load home page by default
+    loadHomePage();
+    
+    // Make logo click go to home page
+    const logo = document.querySelector('.logo');
+    if (logo) {
+      logo.style.cursor = 'pointer';
+      logo.addEventListener('click', (e) => {
+        if (e.target.closest('#collapse-all-btn') || e.target.closest('#sidebar-close')) return;
+        loadHomePage();
+        if (window.innerWidth <= 768) {
+            closeMobileSidebar();
+        }
+      });
     }
   } catch (error) {
     console.error('Failed to initialize app:', error);
@@ -72,7 +106,13 @@ function renderSidebar() {
     
     bookHeader.innerHTML = `${iconSvg} <h2 class="book-title-text">${book.title}</h2>`;
     bookHeader.onclick = () => {
-        bookEl.classList.toggle('expanded');
+        const isExpanded = bookEl.classList.contains('expanded');
+        // Бусад бүх номыг хаана
+        sidebarContent.querySelectorAll('.book-group').forEach(el => el.classList.remove('expanded'));
+        // Өмнө хаалттай байсан бол нээнэ
+        if (!isExpanded) {
+            bookEl.classList.add('expanded');
+        }
     };
     bookEl.appendChild(bookHeader); // Add header to book container
 
@@ -111,15 +151,20 @@ function renderSidebar() {
           sectionItem.className = 'section-link';
           sectionItem.dataset.id = section.id;
           
-          const match = section.title.match(/^(§\s*\d+\.\d+\.?)\s*(.*)$/);
+          const match = section.title.match(/^(§\s*\d+\.\d+\.?|\d+\.\d+\.?)\s*(.*)$/);
           const num = match ? match[1] : (section.id.includes('problems') ? '?' : '');
           const title = match ? match[2] : section.title;
+
+          // Checking if it's the new Problems book
+          if (book.id === 'irodov_problems') {
+               sectionItem.classList.add('is-problems-section');
+          }
 
           sectionItem.innerHTML = `<span class="sec-num">${num}</span><span class="sec-title">${title}</span>`;
           sectionItem.onclick = (e) => {
             e.stopPropagation();
             loadChapter(book, chapter.id, section.id);
-            if (window.innerWidth <= 768) sidebar.classList.remove('active');
+            if (window.innerWidth <= 768) closeMobileSidebar();
           };
           sectionsList.appendChild(sectionItem);
         });
@@ -131,11 +176,48 @@ function renderSidebar() {
     bookEl.appendChild(chaptersContainer);
     sidebarContent.appendChild(bookEl);
     
-    // Auto-expand first book
-    if (bookStructure.books.indexOf(book) === 0) {
-        bookEl.classList.add('expanded');
-    }
+    // Auto-expand first book removed intentionally so all stay closed
   });
+}
+
+function loadHomePage() {
+  currentChapter = null;
+  if (chapterTitle) chapterTitle.textContent = "Физикийн Номын Сан";
+
+  // Deselect active items in sidebar
+  document.querySelectorAll('.section-link.active').forEach(item => item.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item.active-chapter').forEach(item => item.classList.remove('active-chapter'));
+
+  let html = `
+    <div class="home-page">
+      <div class="home-header-content">
+        <h2>Тавтай морилно уу!</h2>
+        <p>И.Е. Иродовын болон бусад физикийн сурах бичиг, бодлогын хураамжуудаас сонгон уншина уу. Энэхүү цахим номын сан нь физикийн шинжлэх ухааныг гүнзгийрүүлэн судлахад тань туслах зорилготой.</p>
+      </div>
+      <div class="book-grid">
+  `;
+
+  if (bookStructure && bookStructure.books) {
+    bookStructure.books.forEach(book => {
+      let clickHandler = `onclick="const h = document.querySelector('.sidebar-item[data-id=\\'${book.chapters[0]?.id}\\'] .chapter-header'); if(h) h.click(); document.querySelector('.sidebar-item[data-id=\\'${book.chapters[0]?.id}\\'] .section-link').click();"`;
+
+      html += `
+        <div class="book-card" ${clickHandler}>
+          <div class="book-card-icon">
+            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" class="text-primary"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          </div>
+          <h3 class="book-card-title">${book.title}</h3>
+          <p class="book-card-desc">${book.chapters.length} бүлэгтэй</p>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+  if (bookContainer) bookContainer.innerHTML = html;
 }
 
 async function loadChapter(book, chapterId, sectionId = null) {
@@ -252,7 +334,7 @@ function createContentElement(item) {
       const problemDiv = document.createElement('div');
       problemDiv.className = 'problem-container';
       
-      let problemHTML = `<div class="problem-header"><strong>${item.number}. ${item.title}</strong></div>`;
+      let problemHTML = `<div class="problem-header"><strong>${item.number || ''} ${item.title || ''}</strong></div>`;
       problemHTML += `<div class="problem-statement">${formatText(item.statement)}</div>`;
       
       if (item.image) {
@@ -271,11 +353,46 @@ function createContentElement(item) {
         `;
       }
       
+      const buttonsDiv = document.createElement('div');
+      buttonsDiv.className = 'problem-buttons';
+      
+      const answerDiv = document.createElement('div');
+      answerDiv.className = 'problem-answer hidden';
+      if (item.answer) {
+        answerDiv.innerHTML = `<strong>Хариу:</strong> ${formatText(item.answer)}`;
+        const btnAnswer = document.createElement('button');
+        btnAnswer.className = 'btn-toggle btn-answer';
+        btnAnswer.innerText = 'Хариу харах';
+        btnAnswer.onclick = () => {
+             answerDiv.classList.toggle('hidden');
+             btnAnswer.innerText = answerDiv.classList.contains('hidden') ? 'Хариу харах' : 'Хариу нуух';
+        };
+        buttonsDiv.appendChild(btnAnswer);
+      }
+
+      const solutionDiv = document.createElement('div');
+      solutionDiv.className = 'problem-solution hidden';
       if (item.solution) {
-        problemHTML += `<div class="problem-solution"><strong>Бодолт:</strong> ${formatText(item.solution)}</div>`;
+        solutionDiv.innerHTML = `<strong>Бодолт:</strong> ${formatText(item.solution)}`;
+        const btnSolution = document.createElement('button');
+        btnSolution.className = 'btn-toggle btn-solution';
+        btnSolution.innerText = 'Бодолт харах';
+        btnSolution.onclick = () => {
+             solutionDiv.classList.toggle('hidden');
+             btnSolution.innerText = solutionDiv.classList.contains('hidden') ? 'Бодолт харах' : 'Бодолт нуух';
+             // re-render mathjax if unhidden
+             if (!solutionDiv.classList.contains('hidden') && window.MathJax) {
+                 window.MathJax.typesetPromise([solutionDiv]);
+             }
+        };
+        buttonsDiv.appendChild(btnSolution);
       }
       
       problemDiv.innerHTML = problemHTML;
+      problemDiv.appendChild(buttonsDiv);
+      problemDiv.appendChild(answerDiv);
+      problemDiv.appendChild(solutionDiv);
+
       return problemDiv;
     case 'section':
       const sec = document.createElement('section');
@@ -322,6 +439,28 @@ function createContentElement(item) {
 
 function formatText(text) {
   if (!text) return '';
+  
+  // Support array format for complex statements/solutions in previous books
+  if (Array.isArray(text)) {
+      return text.map(t => {
+          if (t.type === 'text') return formatText(t.value);
+          if (t.type === 'equation') {
+              const eqLabel = t.tag ? `<span class="equation-tag">(${t.tag})</span>` : '';
+              return `<div class="equation-wrapper">\\[ ${t.value} \\] ${eqLabel}</div>`;
+          }
+          if (t.type === 'image') {
+              const baseUrl = import.meta.env.BASE_URL;
+              let imgSrc = t.src || t.value;
+              if (imgSrc && imgSrc.startsWith('/')) imgSrc = imgSrc.substring(1);
+              if (imgSrc && imgSrc.startsWith('images/')) imgSrc = imgSrc.substring(7);
+              return `<div class="image-container"><img src="${baseUrl}images/${imgSrc}" alt="${t.caption || ''}">${t.caption ? `<p class="caption">${t.caption}</p>` : ''}</div>`;
+          }
+          return '';
+      }).join('');
+  }
+  
+  if (typeof text !== 'string') return '';
+
   // Convert $$...$$ to \\[...\\]
   let formatted = text.replace(/\$\$(.+?)\$\$/gs, (match, p1) => `\\[${p1}\\]`);
   // Convert $...$ to \\(...\\)

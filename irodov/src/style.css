@@ -279,6 +279,25 @@ body {
   display: block;
 }
 
+/* Mobile overlay */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+#sidebar-overlay.active {
+  display: block;
+}
+
+/* Mobile close button — desktop дээр нуугдана */
+#sidebar-close {
+  display: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   #sidebar {
@@ -286,26 +305,80 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
+    height: 100dvh;
     transform: translateX(-100%);
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
-    width: 280px; /* Slightly narrower for mobile */
+    width: 100vw;
+    min-width: 100vw;
     z-index: 1000;
+    box-shadow: none;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   #sidebar.active {
     transform: translateX(0);
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3); /* Strong shadow for overlay */
   }
 
-  /* Reset desktop collapsed rules for mobile */
+  /* Desktop collapsed rules-ийг mobile дээр дарна */
   #sidebar.collapsed {
-    width: 280px; /* Force width back on mobile */
-    min-width: 280px;
-    transform: translateX(-100%); /* Rely on transform for hiding */
+    width: 100vw;
+    min-width: 100vw;
+    transform: translateX(-100%);
+    border-right: 1px solid var(--border-light);
+    box-shadow: none;
   }
 
   #sidebar.active.collapsed {
     transform: translateX(0);
+  }
+
+  /* Mobile хаах товч харагдана */
+  #sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 1.4rem;
+    right: 1.2rem;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 7px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    z-index: 10;
+  }
+
+  /* Override visually hidden texts from desktop collapsed mode */
+  #sidebar.collapsed .book-header h2,
+  #sidebar.collapsed .chapter-link h3 span:last-child,
+  #sidebar.collapsed .section-link .sec-title,
+  #sidebar.collapsed .brand .full-txt,
+  #sidebar.collapsed .sub {
+      opacity: 1 !important;
+      display: inline !important;
+      width: auto !important;
+      pointer-events: auto !important;
+  }
+  
+  #sidebar.collapsed .book-header {
+      justify-content: flex-start;
+      padding: 1.2rem 2rem;
+  }
+
+  #sidebar-close:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  /* collapse-all товч mobile дээр нуугдана (sidebar-close орлоно) */
+  #collapse-all-btn {
+    display: none;
+  }
+
+  #toc {
+    padding-bottom: 3rem;
   }
 
   #main-header {
@@ -574,4 +647,147 @@ body {
 .problems-mode .equation-wrapper {
   background: #ffffff;
   border-color: #cbd5e1;
+}
+
+/* Sidebar Specific Styling for Problems */
+.is-problems-section {
+  background-color: #fdf2f8 !important; /* light pinkish for problems */
+}
+
+.is-problems-section:hover {
+  background-color: #fce7f3 !important;
+}
+
+.is-problems-section.active {
+  background-color: #fbcfe8 !important;
+  border-left-color: #db2777 !important;
+  color: #9d174d !important;
+}
+
+/* Problem interactive buttons */
+.problem-container {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.problem-buttons {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-toggle {
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: white;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.problem-answer {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f0fdf4; /* Light green */
+  border-left: 4px solid #22c55e;
+  border-radius: 4px;
+}
+
+.problem-solution {
+  margin-top: 1rem;
+  background: #f1f5f9;
+  padding: 1.25rem;
+  border-radius: 8px;
+  border-left: 4px solid #94a3b8;
+  font-size: 0.95rem;
+}
+
+/* Home Page Styles */
+.home-page {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-header-content {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.home-header-content h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 2.5rem;
+  color: var(--primary);
+  margin-bottom: 15px;
+}
+
+.home-header-content p {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+}
+
+.book-card {
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+.book-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.06);
+  border-color: var(--primary);
+}
+
+.book-card-icon {
+  margin-bottom: 20px;
+  color: var(--primary);
+}
+
+.book-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-main);
+  font-family: "Outfit", sans-serif;
+}
+
+.book-card-desc {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding: 20px;
+  }
+  .home-header-content h2 {
+    font-size: 2rem;
+  }
+  .book-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 }

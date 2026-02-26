@@ -45,12 +45,31 @@
               <line x1="12" y1="6" x2="12" y2="20"></line>
             </svg>
           </button>
+          <!-- Mobile close button -->
+          <button id="sidebar-close" aria-label="Sidebar хаах">
+            <svg
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              stroke="currentColor"
+              stroke-width="2.5"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
         <nav id="toc">
           <!-- Table of contents will be injected here -->
           <p class="loading">Уншиж байна...</p>
         </nav>
       </aside>
+
+      <!-- Mobile overlay -->
+      <div id="sidebar-overlay"></div>
 
       <!-- Main content area -->
       <main id="content-area">
