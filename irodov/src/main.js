@@ -104,11 +104,42 @@ function renderSidebar() {
   if (!sidebarContent) return;
   sidebarContent.innerHTML = '';
   if (!bookStructure.books) return;
-  
+
+  // --- 3 Category Filter Tabs ---
+  const tabsEl = document.createElement('div');
+  tabsEl.className = 'sidebar-cat-tabs';
+  tabsEl.innerHTML = `
+    <button class="sidebar-cat-btn active" data-cat="book">📚 Ном</button>
+    <button class="sidebar-cat-btn" data-cat="problems">🧮 Бодлого</button>
+    <button class="sidebar-cat-btn" data-cat="olympiad">🏆 Олимпиад</button>
+  `;
+  sidebarContent.appendChild(tabsEl);
+
+  function filterSidebarByCategory(cat) {
+    sidebarContent.querySelectorAll('.book-group').forEach(el => {
+      el.style.display = (el.dataset.category === cat) ? '' : 'none';
+    });
+  }
+
+  tabsEl.querySelectorAll('.sidebar-cat-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      tabsEl.querySelectorAll('.sidebar-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterSidebarByCategory(btn.dataset.cat);
+    });
+  });
+
   bookStructure.books.forEach(book => {
+    // Determine category
+    const bookCat = book.category || (book.type === 'olympiad_series' ? 'olympiad' : 'book');
+
     // Book Container
     const bookEl = document.createElement('div');
     bookEl.className = 'book-group';
+    bookEl.dataset.category = bookCat;
+    // Initially show only "book" category
+    if (bookCat !== 'book') bookEl.style.display = 'none';
     
     // Book Header
     const bookHeader = document.createElement('div');
@@ -299,16 +330,28 @@ window._openBookContent = function(bookId) {
   const book = bookStructure.books.find(b => b.id === bookId);
   if (!book || !book.chapters || book.chapters.length === 0) return;
 
+  // Determine this book's category and switch sidebar tab to match
+  const bookCat = book.category || (book.type === 'olympiad_series' ? 'olympiad' : 'book');
+  const tabsEl = sidebarContent.querySelector('.sidebar-cat-tabs');
+  if (tabsEl) {
+    tabsEl.querySelectorAll('.sidebar-cat-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cat === bookCat);
+    });
+    // Show only books of this category
+    sidebarContent.querySelectorAll('.book-group').forEach(el => {
+      el.style.display = (el.dataset.category === bookCat) ? '' : 'none';
+    });
+  }
+
   // Expand the book group in sidebar
   sidebarContent.querySelectorAll('.book-group').forEach(el => el.classList.remove('expanded'));
   
   // Find and expand the target book
   const bookGroups = sidebarContent.querySelectorAll('.book-group');
-  let targetGroup = null;
   bookGroups.forEach(group => {
     const title = group.querySelector('.book-title-text');
     if (title && title.textContent.trim() === book.title) {
-      targetGroup = group;
+      group.style.display = ''; // ensure it's visible
       group.classList.add('expanded');
     }
   });
@@ -408,19 +451,134 @@ async function loadOlympiadTabContent(book, chapter, tabId) {
     const data = await response.json();
 
     contentArea.innerHTML = '';
-    data.body.forEach(item => {
-      const el = createContentElement(item);
-      if (el) contentArea.appendChild(el);
-    });
+    
+    // Check if data is array (new format) or object (old format)
+    if (Array.isArray(data)) {
+       const tableContainer = renderOlympiadTable(data);
+       contentArea.appendChild(tableContainer);
+    } else if (data && data.body && Array.isArray(data.body)) {
+       data.body.forEach(item => {
+         const el = createContentElement(item);
+         if (el) contentArea.appendChild(el);
+       });
+    } else {
+       console.warn('Olympiad data format not recognized or empty:', data);
+       contentArea.innerHTML = '<p class="error">Энэ хэсэгт агуулга одоогоор байхгүй байна.</p>';
+    }
 
     setTimeout(() => {
       document.getElementById('book-content')?.scrollTo({ top: 0, behavior: 'smooth' });
-      if (window.MathJax) window.MathJax.typesetPromise([contentArea]);
+      if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') window.MathJax.typesetPromise([contentArea]);
     }, 100);
   } catch (err) {
     console.error('Olympiad tab load error:', err);
     contentArea.innerHTML = '<p class="error">Агуулга ачаалахад алдаа гарлаа.</p>';
   }
+}
+
+function renderOlympiadTable(problems) {
+  const container = document.createElement('div');
+  container.className = 'olympiad-table-container';
+
+  problems.forEach(prob => {
+    // Main Problem Block
+    const probBlock = document.createElement('div');
+    probBlock.className = 'olympiad-problem-block';
+
+    const headerWrap = document.createElement('div');
+    headerWrap.className = 'olympiad-problem-header';
+
+    const titleEl = document.createElement('h3');
+    titleEl.innerHTML = prob.title;
+    headerWrap.appendChild(titleEl);
+
+    if (prob.points) {
+        const ptsEl = document.createElement('span');
+        ptsEl.className = 'score-badge';
+        ptsEl.textContent = `${prob.points} оноо`;
+        headerWrap.appendChild(ptsEl);
+    }
+    probBlock.appendChild(headerWrap);
+
+    // Main Problem Content
+    if (prob.content && prob.content.length > 0) {
+      const contentEl = document.createElement('div');
+      contentEl.className = 'olympiad-problem-content';
+      contentEl.innerHTML = prob.content.join('');
+      probBlock.appendChild(contentEl);
+    }
+
+    // Main Problem Solution Button & Row
+    if (prob.solution) {
+      appendSolutionRow(probBlock, prob.solution, 'Ерөнхий бодолт');
+    }
+
+    // Sub Problems
+    if (prob.subProblems && prob.subProblems.length > 0) {
+      prob.subProblems.forEach(subProb => {
+        const subBlock = document.createElement('div');
+        subBlock.className = 'olympiad-subproblem-block';
+
+        const subHeaderWrap = document.createElement('div');
+        subHeaderWrap.className = 'olympiad-subproblem-header';
+        
+        const subTitleEl = document.createElement('h4');
+        subTitleEl.innerHTML = subProb.title;
+        subHeaderWrap.appendChild(subTitleEl);
+
+        if (subProb.points) {
+          const subPtsEl = document.createElement('span');
+          subPtsEl.className = 'score-badge sub-score';
+          subPtsEl.textContent = `${subProb.points} оноо`;
+          subHeaderWrap.appendChild(subPtsEl);
+        }
+        subBlock.appendChild(subHeaderWrap);
+
+        if (subProb.content && subProb.content.length > 0) {
+          const subContentEl = document.createElement('div');
+          subContentEl.className = 'olympiad-subproblem-content';
+          subContentEl.innerHTML = subProb.content.join('');
+          subBlock.appendChild(subContentEl);
+        }
+
+        if (subProb.solution) {
+          appendSolutionRow(subBlock, subProb.solution, 'Дэд бодолт');
+        }
+
+        probBlock.appendChild(subBlock);
+      });
+    }
+    
+    container.appendChild(probBlock);
+  });
+
+  return container;
+}
+
+function appendSolutionRow(parentElement, solutionHtml, btnLabel) {
+  const btnWrap = document.createElement('div');
+  btnWrap.className = 'solution-btn-wrap';
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-view-solution';
+  btn.innerText = btnLabel + ' харах';
+  btnWrap.appendChild(btn);
+
+  const solRow = document.createElement('div');
+  solRow.className = 'solution-row hidden';
+  solRow.innerHTML = solutionHtml;
+  
+  btn.addEventListener('click', () => {
+    solRow.classList.toggle('hidden');
+    if (solRow.classList.contains('hidden')) {
+      btn.innerText = btnLabel + ' харах';
+    } else {
+      btn.innerText = btnLabel + ' хураах';
+    }
+  });
+
+  parentElement.appendChild(btnWrap);
+  parentElement.appendChild(solRow);
 }
 
 async function loadChapter(book, chapterId, sectionId = null) {
@@ -475,7 +633,7 @@ async function loadChapter(book, chapterId, sectionId = null) {
        window.scrollTo({ top: 0, behavior: 'smooth' });
        
       if (window.MathJax) {
-        window.MathJax.typesetPromise();
+        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') window.MathJax.typesetPromise();
       }
     }, 100);
 
@@ -555,7 +713,11 @@ function createContentElement(item) {
       problemDiv.appendChild(statementContainer);
 
       const rawStatementParts = Array.isArray(item.statement) ? item.statement : [{ type: 'text', value: item.statement }];
-      const rawSolutionParts = Array.isArray(item.solution) ? item.solution : [{ type: 'text', value: item.solution }];
+      // Support both 'solution' and 'answer' fields; if neither exists use empty array
+      const rawSolutionSource = item.solution ?? item.answer;
+      const rawSolutionParts = Array.isArray(rawSolutionSource)
+        ? rawSolutionSource
+        : (rawSolutionSource != null ? [{ type: 'text', value: rawSolutionSource }] : []);
 
       // --- Math-Aware Robust Splitting Logic ---
       const partIdPattern = /([A-Za-z]\.\d+\.\d+|[A-Za-z]\.\d+|[0-9]\.[0-9]|[0-9]\.[0-9]+|[0-9]+)/;
@@ -650,6 +812,7 @@ function createContentElement(item) {
       let currentPartIndex = -1;
       solutionParts.forEach(sol => {
           if (sol.type === 'text') {
+              if (!sol.value) return; // skip undefined/null values
               const match = sol.value.match(partHeaderRegex);
               if (match) {
                   const solId = match[1];
@@ -711,7 +874,7 @@ function createContentElement(item) {
                   if (!solContentDiv.classList.contains('hidden') && window.MathJax) {
                       // Use a slight delay to ensure the DOM is painted
                       setTimeout(() => {
-                          window.MathJax.typesetPromise([solContentDiv]).catch((err) => console.log('MathJax error:', err));
+                          if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') window.MathJax.typesetPromise([solContentDiv]).catch((err) => console.log('MathJax error:', err));
                       }, 10);
                   }
               };
@@ -725,7 +888,7 @@ function createContentElement(item) {
       // Explicitly typeset the whole problem container after building it
       if (window.MathJax) {
           setTimeout(() => {
-              window.MathJax.typesetPromise([problemDiv]);
+              if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') window.MathJax.typesetPromise([problemDiv]);
           }, 0);
       }
 
