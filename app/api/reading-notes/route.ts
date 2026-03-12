@@ -14,9 +14,10 @@ export async function GET(req: NextRequest) {
     .where("uid", "==", decoded.uid)
     .get();
 
+  interface NoteRow { id: string; createdAt: number; [k: string]: unknown }
   const notes = snap.docs
-    .map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }))
-    .sort((a, b) => (a.createdAt as number) > (b.createdAt as number) ? -1 : 1);
+    .map((d) => ({ id: d.id, ...d.data() } as NoteRow))
+    .sort((a, b) => b.createdAt - a.createdAt);
   return NextResponse.json({ notes }, {
     headers: { "Cache-Control": "private, no-store" },
   });
