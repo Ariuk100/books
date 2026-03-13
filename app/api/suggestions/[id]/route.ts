@@ -43,6 +43,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
   const { id } = await params;
   const session = req.cookies.get("session")?.value;
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -67,6 +68,12 @@ export async function PATCH(
   const sugg = suggSnap.data()!;
   const suggType: string = sugg.type ?? "text";
   const blockIndex: number = sugg.blockIndex ?? -1;
+
+  // Guard: chapterId must exist (older suggestions may not have it)
+  if (!sugg.chapterId) {
+    console.error(`[suggestions] Missing chapterId on suggestion ${id}`);
+    return NextResponse.json({ error: "Suggestion is missing chapterId — cannot locate section" }, { status: 422 });
+  }
 
   // ── REJECT ─────────────────────────────────────────────────────────────────
   if (action === "reject") {
@@ -293,6 +300,12 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true });
+
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[suggestions PATCH] Unhandled error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 // DELETE /api/suggestions/[id] — admin or own moderator can delete
