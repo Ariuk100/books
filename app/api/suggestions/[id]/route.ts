@@ -197,6 +197,18 @@ export async function PATCH(
       // Remove the image block entirely
       updatedBody = body.filter((_, index) => index !== blockIndex);
       replaced = true;
+      // Track local image path for later filesystem cleanup
+      const deletedSrc: string = sugg.originalText ?? "";
+      if (deletedSrc && !deletedSrc.startsWith("http")) {
+        adminDb.collection("deletedImages").add({
+          path: deletedSrc,
+          bookId: sugg.bookId,
+          sectionId: sugg.sectionId,
+          deletedAt: Date.now(),
+          deletedBy: decoded.uid,
+          suggestionId: id,
+        }).catch(() => {});
+      }
       // Clean up temp storage (no temp file for delete action)
     } else if (imageAction === "replace" || imageAction === "insert") {
       // Move temp image to permanent location
