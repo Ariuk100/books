@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import katex from "katex";
 
 interface Props {
   selectedText: string;   // full raw block value (with LaTeX)
@@ -23,7 +24,6 @@ function diffWords(original: string, modified: string): DiffToken[] {
   const b = tokenize(modified);
   const m = a.length, n = b.length;
 
-  // Build LCS table
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = m - 1; i >= 0; i--)
     for (let j = n - 1; j >= 0; j--)
@@ -31,7 +31,6 @@ function diffWords(original: string, modified: string): DiffToken[] {
         ? dp[i + 1][j + 1] + 1
         : Math.max(dp[i + 1][j], dp[i][j + 1]);
 
-  // Traceback
   const result: DiffToken[] = [];
   let i = 0, j = 0;
   while (i < m && j < n) {
@@ -48,13 +47,31 @@ function diffWords(original: string, modified: string): DiffToken[] {
   return result;
 }
 
+/** KaTeX render helper */
+function tex(value: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(value, { displayMode, throwOnError: false, output: "html" });
+  } catch {
+    return value;
+  }
+}
+
+/** Process inline and block LaTeX in HTML string */
+function processLatex(html: string): string {
+  html = html.replace(/\\\[([\\s\S]+?)\\\]/g, (_, m) => tex(m.trim(), true));
+  html = html.replace(/\\\(([\\s\S]+?)\\\)/g, (_, m) => tex(m.trim(), false));
+  html = html.replace(/\$\$([\\s\S]+?)\$\$/g, (_, m) => tex(m.trim(), true));
+  html = html.replace(/\$([^$\n]+?)\$/g,       (_, m) => tex(m.trim(), false));
+  return html;
+}
+
 const LATEX_EXAMPLES = [
   { label: "Дотор (inline)", code: "$F = ma$" },
-  { label: "Тусдаа мөр", code: "$$E = mc^2$$" },
-  { label: "Векторт", code: "$\\vec{E}$" },
-  { label: "Дэвшилт", code: "$x^2 + y^2$" },
-  { label: "Бутархай", code: "$\\frac{a}{b}$" },
-  { label: "Грек", code: "$\\alpha, \\beta, \\gamma$" },
+  { label: "Тусдаа мөр",     code: "$$E = mc^2$$" },
+  { label: "Векторт",         code: "$\\vec{E}$" },
+  { label: "Дэвшилт",        code: "$x^2 + y^2$" },
+  { label: "Бутархай",       code: "$\\frac{a}{b}$" },
+  { label: "Грек",           code: "$\\alpha, \\beta, \\gamma$" },
 ];
 
 export default function SuggestionModal({
@@ -69,17 +86,23 @@ export default function SuggestionModal({
   onSubmitted,
 }: Props) {
   const [suggestedText, setSuggestedText] = useState(selectedText);
-  const [note, setNote] = useState("");
+  const [note, setNote]     = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError]   = useState("");
   const [showLatex, setShowLatex] = useState(false);
+  // "diff" = засварын харьцуулалт, "preview" = LaTeX render
+  const [rightTab, setRightTab] = useState<"diff" | "preview">("diff");
 
   const diff = useMemo(
     () => (insertMode ? [] : diffWords(selectedText, suggestedText)),
     [selectedText, suggestedText, insertMode]
   );
-
   const hasChanges = diff.some((t) => t.type !== "same");
+
+  // Live LaTeX preview of the suggested text
+  const renderedPreview = useMemo(() => processLatex(suggestedText), [suggestedText]);
+  // LaTeX preview of the original (left panel)
+  const renderedOriginal = useMemo(() => processLatex(selectedText), [selectedText]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,16 +147,22 @@ export default function SuggestionModal({
       className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
     >
       <div className="modal-card bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden">
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
               <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </div>
             <h2 className="text-base font-semibold text-slate-900">
-              {insertMode ? "Шинэ параграф нэмэх санал" : type === "title" ? "Гарчиг засах санал" : "Орчуулах санал"}
+              {insertMode
+                ? "Шинэ параграф нэмэх санал"
+                : type === "title"
+                ? "Гарчиг засах санал"
+                : "Орчуулах санал"}
             </h2>
           </div>
           <button
@@ -147,37 +176,29 @@ export default function SuggestionModal({
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Body: two-column for edit mode, single column for insert mode */}
+          {/* Body */}
           <div className={insertMode ? "" : "grid grid-cols-2 divide-x divide-slate-100"}>
-            {/* Left: original with diff — hidden in insert mode */}
+
+            {/* ── Left: Эх текст (edit mode only) ── */}
             {!insertMode && (
               <div className="p-5 space-y-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Эх текст</p>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 h-52 overflow-y-auto leading-relaxed whitespace-pre-wrap">
-                  {hasChanges
-                    ? diff
-                        .filter((t) => t.type !== "ins")
-                        .map((t, i) =>
-                          t.type === "del" ? (
-                            <mark
-                              key={i}
-                              className="bg-red-100 text-red-700 line-through rounded px-0.5"
-                            >
-                              {t.text}
-                            </mark>
-                          ) : (
-                            <span key={i}>{t.text}</span>
-                          )
-                        )
-                    : selectedText}
-                </div>
+                {/* Left tab: Эх / Харах */}
+                <LeftTabs
+                  hasChanges={hasChanges}
+                  diff={diff}
+                  selectedText={selectedText}
+                  renderedOriginal={renderedOriginal}
+                />
               </div>
             )}
 
-            {/* Right (or full-width in insert mode): textarea + diff preview */}
+            {/* ── Right: textarea + tabs ── */}
             <div className="p-5 space-y-2">
+              {/* Row: label + LaTeX toggle */}
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Засварласан текст</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Засварласан текст
+                </p>
                 <button
                   type="button"
                   onClick={() => setShowLatex((v) => !v)}
@@ -215,39 +236,68 @@ export default function SuggestionModal({
                 </div>
               )}
 
+              {/* Textarea */}
               <textarea
                 autoFocus
                 required
                 rows={8}
                 value={suggestedText}
                 onChange={(e) => setSuggestedText(e.target.value)}
-                placeholder={insertMode ? "Шинэ параграфын текстийг энд бичнэ үү..." : "Засварласан текстийг энд бичнэ үү..."}
+                placeholder={
+                  insertMode
+                    ? "Шинэ параграфын текстийг энд бичнэ үү..."
+                    : "Засварласан текстийг энд бичнэ үү..."
+                }
                 className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-400 h-52"
               />
 
-              {/* Diff preview: new text with insertions highlighted */}
-              {hasChanges && (
-                <div className="rounded-xl border border-green-100 bg-green-50/60 px-4 py-3 text-sm text-slate-800 max-h-[120px] overflow-y-auto leading-relaxed whitespace-pre-wrap">
-                  {diff
-                    .filter((t) => t.type !== "del")
-                    .map((t, i) =>
-                      t.type === "ins" ? (
-                        <mark
-                          key={i}
-                          className="bg-green-200 text-green-800 rounded px-0.5"
-                        >
-                          {t.text}
-                        </mark>
-                      ) : (
-                        <span key={i}>{t.text}</span>
-                      )
-                    )}
+              {/* ── Bottom panel: Diff | Preview tabs ── */}
+              {insertMode ? (
+                /* Insert mode: always show preview */
+                <PreviewPanel html={renderedPreview} label="Урьдчилан харах" />
+              ) : (
+                /* Edit mode: Засвар | Харах tabs */
+                <div className="space-y-1.5">
+                  <div className="flex gap-1">
+                    <TabBtn
+                      active={rightTab === "diff"}
+                      onClick={() => setRightTab("diff")}
+                      label="Засвар"
+                    />
+                    <TabBtn
+                      active={rightTab === "preview"}
+                      onClick={() => setRightTab("preview")}
+                      label="Харах"
+                    />
+                  </div>
+
+                  {rightTab === "diff" ? (
+                    hasChanges ? (
+                      <div className="rounded-xl border border-green-100 bg-green-50/60 px-4 py-3 text-sm text-slate-800 max-h-[120px] overflow-y-auto leading-relaxed whitespace-pre-wrap">
+                        {diff
+                          .filter((t) => t.type !== "del")
+                          .map((t, i) =>
+                            t.type === "ins" ? (
+                              <mark key={i} className="bg-green-200 text-green-800 rounded px-0.5">
+                                {t.text}
+                              </mark>
+                            ) : (
+                              <span key={i}>{t.text}</span>
+                            )
+                          )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 px-1">Өөрчлөлт байхгүй</p>
+                    )
+                  ) : (
+                    <PreviewPanel html={renderedPreview} />
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Note + error + actions */}
+          {/* Footer: note + actions */}
           <div className="px-5 pb-5 space-y-3">
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -280,6 +330,94 @@ export default function SuggestionModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/* ── Sub-components ──────────────────────────────────────────── */
+
+function TabBtn({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+        active
+          ? "bg-blue-100 text-blue-700"
+          : "text-slate-500 hover:bg-slate-100"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function PreviewPanel({ html, label = "Урьдчилан харах" }: { html: string; label?: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-slate-400 px-0.5">{label}</p>
+      <div
+        className="rounded-xl border border-blue-100 bg-blue-50/40 px-4 py-3 text-sm text-slate-800 max-h-[140px] overflow-y-auto leading-relaxed prose prose-sm max-w-none"
+        dangerouslySetInnerHTML={{ __html: html || '<span class="text-slate-400 italic">Текст байхгүй</span>' }}
+      />
+    </div>
+  );
+}
+
+/** Left panel with its own Эх / Харах tabs */
+function LeftTabs({
+  hasChanges,
+  diff,
+  selectedText,
+  renderedOriginal,
+}: {
+  hasChanges: boolean;
+  diff: DiffToken[];
+  selectedText: string;
+  renderedOriginal: string;
+}) {
+  const [tab, setTab] = useState<"diff" | "preview">("diff");
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Эх текст</p>
+        <div className="flex gap-1">
+          <TabBtn active={tab === "diff"}    onClick={() => setTab("diff")}    label="Засвар" />
+          <TabBtn active={tab === "preview"} onClick={() => setTab("preview")} label="Харах"  />
+        </div>
+      </div>
+
+      {tab === "diff" ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 h-52 overflow-y-auto leading-relaxed whitespace-pre-wrap">
+          {hasChanges
+            ? diff
+                .filter((t) => t.type !== "ins")
+                .map((t, i) =>
+                  t.type === "del" ? (
+                    <mark key={i} className="bg-red-100 text-red-700 line-through rounded px-0.5">
+                      {t.text}
+                    </mark>
+                  ) : (
+                    <span key={i}>{t.text}</span>
+                  )
+                )
+            : selectedText}
+        </div>
+      ) : (
+        <div
+          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 h-52 overflow-y-auto leading-relaxed prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: renderedOriginal }}
+        />
+      )}
     </div>
   );
 }
