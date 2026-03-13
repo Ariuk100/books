@@ -328,29 +328,25 @@ export default function ReaderPage() {
                 />
                 {/* Mod: buttons to insert paragraph or image at end of section */}
                 {isMod && (
-                  <div className="mt-8 pt-4 border-t border-dashed border-slate-200 flex flex-wrap gap-4">
+                  <div className="mt-8 pt-4 border-t border-dashed border-slate-300 flex flex-wrap gap-3">
                     <button
                       type="button"
                       onClick={() => setInsertParagraphOpen(true)}
-                      className="flex items-center gap-2 text-xs text-slate-400 hover:text-blue-500 transition-colors group"
+                      className="flex items-center gap-2 text-xs text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 rounded-lg px-3 py-1.5 transition-colors"
                     >
-                      <span className="w-5 h-5 rounded-full border border-dashed border-slate-300 group-hover:border-blue-400 flex items-center justify-center transition-colors">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </span>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
                       Параграф нэмэх санал
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSelectImage(null, section.body.length, "insert")}
-                      className="flex items-center gap-2 text-xs text-slate-400 hover:text-blue-500 transition-colors group"
+                      className="flex items-center gap-2 text-xs text-slate-500 hover:text-blue-600 border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 rounded-lg px-3 py-1.5 transition-colors"
                     >
-                      <span className="w-5 h-5 rounded-full border border-dashed border-slate-300 group-hover:border-blue-400 flex items-center justify-center transition-colors">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </span>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
                       Зураг нэмэх санал
                     </button>
                   </div>
