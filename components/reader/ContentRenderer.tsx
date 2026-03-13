@@ -30,6 +30,30 @@ function tex(value: string, displayMode: boolean): string {
   }
 }
 
+// Download an image (fetch→blob to force download, fallback: new tab)
+async function downloadImage(src: string) {
+  try {
+    const res = await fetch(src, { mode: "cors" });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = src.split("/").pop()?.split("?")[0] || "image.jpg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    window.open(src, "_blank");
+  }
+}
+
+const DownloadIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+);
+
 // Process inline math inside arbitrary HTML strings
 function processInlineMath(html: string): string {
   html = html.replace(/\\\[([\\s\S]+?)\\\]/g, (_, m) => tex(m.trim(), true));
@@ -57,14 +81,26 @@ function renderStatementBlocks(blocks: StatementBlock[]) {
           dangerouslySetInnerHTML={{ __html: tex(b.value, true) }}
         />
       );
-    if (b.type === "image")
+    if (b.type === "image") {
+      const src = b.src.startsWith("http") ? b.src : `/${b.src}`;
       return (
         <figure key={i} className="my-4 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/${b.src}`} alt={b.caption ?? ""} className="mx-auto max-w-full rounded" loading="lazy" decoding="async" />
+          <div className="relative inline-block group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt={b.caption ?? ""} className="mx-auto max-w-full rounded" loading="lazy" decoding="async" />
+            <button
+              type="button"
+              onClick={() => downloadImage(src)}
+              className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 w-7 h-7 bg-white/90 rounded-full shadow flex items-center justify-center text-slate-500 hover:text-blue-600 transition-all"
+              title="Зураг татах"
+            >
+              <DownloadIcon />
+            </button>
+          </div>
           {b.caption && <figcaption className="text-slate-400 text-sm mt-1">{b.caption}</figcaption>}
         </figure>
       );
+    }
     if (b.type === "note")
       return (
         <aside
@@ -254,7 +290,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
                   </div>
                 )
               ) : (
-                <div className={`relative block group ${isMod ? "cursor-pointer" : ""}`}>
+                <div className={`relative inline-block group ${isMod ? "cursor-pointer" : ""}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imgSrc}
@@ -263,7 +299,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
                     loading="lazy"
                     decoding="async"
                   />
-                  {isMod && (
+                  {isMod ? (
                     <div className="absolute inset-0 rounded flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
                       <button
                         type="button"
@@ -279,7 +315,23 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
                       >
                         ✕ Устгах
                       </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); downloadImage(imgSrc); }}
+                        className="px-3 py-1.5 bg-white text-slate-600 text-xs font-semibold rounded-lg shadow hover:bg-slate-50 transition-colors flex items-center gap-1"
+                      >
+                        <DownloadIcon /> Татах
+                      </button>
                     </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => downloadImage(imgSrc)}
+                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 w-7 h-7 bg-white/90 rounded-full shadow flex items-center justify-center text-slate-500 hover:text-blue-600 transition-all"
+                      title="Зураг татах"
+                    >
+                      <DownloadIcon />
+                    </button>
                   )}
                 </div>
               )}
