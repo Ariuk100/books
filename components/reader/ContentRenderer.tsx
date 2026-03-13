@@ -214,7 +214,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
                 className="text-slate-800 leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: processInlineMath(block.value) }}
               />
-              <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none group-hover:pointer-events-auto">
+              <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                 {onSelectText && (
                   <span className="text-[10px] font-semibold text-amber-600 bg-white border border-amber-200 px-1.5 py-0.5 rounded-md pointer-events-none">
                     ✎ Засах
@@ -247,7 +247,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
               >
                 {block.value}
               </h2>
-              <span className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none group-hover:pointer-events-auto">
+              <span className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                 {onSelectText && (
                   <span className="text-[10px] font-semibold text-amber-600 bg-white border border-amber-200 px-1.5 py-0.5 rounded-md pointer-events-none">
                     ✎ Засах
@@ -287,7 +287,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
               <span dangerouslySetInnerHTML={{ __html: tex(block.value, true) }} />
               {block.tag && <span className="text-slate-400 text-sm shrink-0">({block.tag})</span>}
               {isMod && (
-                <span className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none group-hover:pointer-events-auto">
+                <span className="absolute top-1 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                   {onSelectFormula && (
                     <span className="text-[10px] font-semibold text-violet-500 bg-white border border-violet-200 px-1.5 py-0.5 rounded-md pointer-events-none">
                       ✎ Засах
@@ -396,7 +396,7 @@ export default function ContentRenderer({ body, onSelectText, onSelectFormula, o
                 className="border-l-2 border-amber-400 pl-4 py-1 text-slate-500 text-sm italic bg-amber-50 rounded-r"
                 dangerouslySetInnerHTML={{ __html: processInlineMath(block.value) }}
               />
-              <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none group-hover:pointer-events-auto">
+              <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                 {onSelectText && (
                   <span className="text-[10px] font-semibold text-amber-600 bg-white border border-amber-200 px-1.5 py-0.5 rounded-md pointer-events-none">
                     ✎ Засах
