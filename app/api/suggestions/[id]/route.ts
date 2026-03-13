@@ -220,6 +220,22 @@ export async function PATCH(
       const permanentPath = `books/${sugg.bookId}/${sugg.sectionId}_${Date.now()}.${ext}`;
       const permanentUrl = await moveStorageFile(tempPath, permanentPath);
 
+      // Track for later migration to public/images/
+      const permanentFilename = permanentPath.split("/").pop()!;
+      const localPath = `images/${sugg.bookId}/${permanentFilename}`;
+      adminDb.collection("addedImages").add({
+        storagePath: permanentPath,
+        storageUrl: permanentUrl,
+        localPath,
+        bookId: sugg.bookId,
+        chapterId: sugg.chapterId,
+        sectionId: sugg.sectionId,
+        imageAction,
+        addedAt: Date.now(),
+        addedBy: decoded.uid,
+        suggestionId: id,
+      }).catch(() => {});
+
       if (imageAction === "replace") {
         updatedBody = body.map((block, index) => {
           if (index !== blockIndex) return block;
