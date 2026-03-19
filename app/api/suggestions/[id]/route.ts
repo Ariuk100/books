@@ -9,12 +9,22 @@ function stripHtml(html: string): string {
 }
 
 // Replace `oldText` with `newText` inside an HTML string.
+// Uses Array.from() (Unicode-aware) instead of split("") so that multi-character
+// escape sequences like \\( or \\) from LaTeX are kept as single codepoints,
+// preventing broken regex patterns such as unmatched parentheses.
 function replaceInHtml(html: string, oldText: string, newText: string): string | null {
   if (html.includes(oldText)) return html.replace(oldText, newText);
-  const escaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const interleaved = escaped.split("").join("(?:<[^>]*>)*");
-  const regex = new RegExp(interleaved);
-  if (regex.test(html)) return html.replace(regex, newText);
+  try {
+    const escaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const interleaved = Array.from(escaped).join("(?:<[^>]*>)*");
+    const regex = new RegExp(interleaved);
+    if (regex.test(html)) return html.replace(regex, newText);
+  } catch {
+    // regex construction failed (e.g. complex LaTeX) — fall through to plain-text fallback
+  }
+  // Plain-text fallback: strip tags from the block and compare
+  const plain = html.replace(/<[^>]*>/g, "");
+  if (plain.includes(oldText)) return plain.replace(oldText, newText);
   return null;
 }
 
@@ -192,26 +202,39 @@ export async function PATCH(
         }
         replaced = true;
       } else {
-        const originalText: string = sugg.originalText;
-        updatedBody = body.map((block, index) => {
-          if (blockIndex >= 0 && index !== blockIndex) return block;
-          if (block.type === "header") {
-            // Header values are plain text — direct replace
-            if (block.value === originalText || block.value.includes(originalText)) {
-              replaced = true;
-              return { ...block, value: block.value === originalText ? finalText : block.value.replace(originalText, finalText) };
+        // ── Primary strategy: replace by blockIndex directly ───────────────
+        // originalText = full block.value at submission time; blockIndex is always stored.
+        // Using index-based replacement avoids text-search failures caused by HTML
+        // mutations or LaTeX in the block value.
+        if (blockIndex >= 0 && blockIndex < body.length) {
+          updatedBody = body.map((b, index) =>
+            index === blockIndex ? { ...b, value: finalText } : b
+          );
+          replaced = true;
+        }
+
+        // ── Fallback: scan all blocks by text match (blockIndex missing/invalid) ──
+        if (!replaced) {
+          const originalText: string = sugg.originalText;
+          updatedBody = body.map((block, index) => {
+            if (blockIndex >= 0 && index !== blockIndex) return block;
+            if (block.type === "header") {
+              if (block.value === originalText || block.value.includes(originalText)) {
+                replaced = true;
+                return { ...block, value: block.value === originalText ? finalText : block.value.replace(originalText, finalText) };
+              }
+            } else if (block.type === "text" || block.type === "note") {
+              const result = replaceInHtml(block.value, originalText, finalText);
+              if (result !== null) { replaced = true; return { ...block, value: result }; }
+              const plain = stripHtml(block.value);
+              if (plain.includes(originalText)) {
+                replaced = true;
+                return { ...block, value: plain.replace(originalText, finalText) };
+              }
             }
-          } else if (block.type === "text" || block.type === "note") {
-            const result = replaceInHtml(block.value, originalText, finalText);
-            if (result !== null) { replaced = true; return { ...block, value: result }; }
-            const plain = stripHtml(block.value);
-            if (plain.includes(originalText)) {
-              replaced = true;
-              return { ...block, value: plain.replace(originalText, finalText) };
-            }
-          }
-          return block;
-        });
+            return block;
+          });
+        }
       }
     }
 
