@@ -56,6 +56,27 @@ class AppError extends Error {
   }
 }
 
+/** Retry a Firestore transaction on ABORTED (code 10) contention errors */
+async function runTransactionWithRetry<T>(
+  fn: (tx: FirebaseFirestore.Transaction) => Promise<T>,
+  maxAttempts = 5
+): Promise<T> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await adminDb.runTransaction(fn);
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 10 && attempt < maxAttempts - 1) {
+        // Exponential backoff: 100ms, 200ms, 400ms, 800ms
+        await new Promise((r) => setTimeout(r, 100 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new AppError("Transaction failed after retries", 503);
+}
+
 // PATCH /api/suggestions/[id] — approve or reject (admin only)
 export async function PATCH(
   req: NextRequest,
@@ -177,7 +198,7 @@ export async function PATCH(
   // ── Atomic read-modify-write via Firestore transaction ─────────────────────
   // This guarantees no concurrent approval can overwrite another's changes.
   // If the block cannot be found/replaced, the transaction is aborted with 409.
-  const nowTs = await adminDb.runTransaction(async (tx) => {
+  const nowTs = await runTransactionWithRetry(async (tx) => {
     const sectionSnap = await tx.get(sectionRef);
     if (!sectionSnap.exists) {
       throw new AppError("Section not found", 404);
